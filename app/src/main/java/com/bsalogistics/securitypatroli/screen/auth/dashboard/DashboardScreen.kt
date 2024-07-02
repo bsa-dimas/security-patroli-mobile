@@ -106,10 +106,10 @@ fun BoxList(navController: NavController) {
         .padding(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             BoxItem(text = "List Area", modifier = Modifier.weight(1f), onClick = {
-                navController.navigate(route = NavigationRoutes.Authenticated.AreaList.route)
+//                navController.navigate(route = NavigationRoutes.Authenticated.AreaList.route)
             })
             BoxItem(text = "Tambah Area", modifier = Modifier.weight(1f), onClick = {
-                navController.navigate(route = NavigationRoutes.Authenticated.AreaForm.route)
+//                navController.navigate(route = NavigationRoutes.Authenticated.AreaForm.route)
             })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -65,49 +65,6 @@ fun NavGraphBuilder.unauthenticatedGraph(navController: NavController) {
     }
 }
 
-/**
- * Authenticated screens nav graph builder
- */
-//fun NavGraphBuilder.authenticatedGraph(navController: NavController) {
-//    navigation(
-//        route = NavigationRoutes.Authenticated.NavigationRoute.route,
-//        startDestination = NavigationRoutes.Authenticated.Dashboard.route
-//    ) {
-//        // Dashboard
-//        composable(route = NavigationRoutes.Authenticated.Dashboard.route) {
-//            HomeScreen(navController = navController)
-//        }
-//
-////        composable(route = NavigationRoutes.Authenticated.AreaList.route) {
-////            AreaScreen(navController = navController)
-////        }
-////
-////        composable(route = NavigationRoutes.Authenticated.AreaScannedList.route) {navBackResult ->
-////            val areaName = navBackResult.savedStateHandle.get<String>("areaName")
-//////            DashboardForUser(navController = navController, areaName = areaName)
-////
-////
-////            AreaFormNavigate(navController = navController)
-////        }
-////
-////        composable(route = NavigationRoutes.Authenticated.AreaForm.route) { navBackResult ->
-////
-////            val areaName = navBackResult.savedStateHandle.get<String>("areaName")
-//////            AreaFormScreen(navController = navController, areaName = areaName)
-////        }
-////
-////        composable(route = "${NavigationRoutes.Authenticated.AreaFormScanned.route}/{areaName}") {navBackResult ->
-////            AreaScannedFormScreen(navController = navController)
-////        }
-////
-////        composable(route = NavigationRoutes.Authenticated.Scanner.route) {
-////            ScannerScreen(navController = navController, onSuccess =  { areaName ->
-////
-////            })
-////        }
-//    }
-//}
-
 fun NavGraphBuilder.areaGraph(navController: NavController) {
 
     navigation(

@@ -118,4 +118,5 @@ dependencies {
     implementation("network.chaintech:qr-kit:1.0.2")
 
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation ("id.zelory:compressor:3.0.1")
 }

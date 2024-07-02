@@ -1,5 +1,17 @@
 package com.bsalogistics.securitypatroli.screen.areasecurity.form
 
+import android.Manifest
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.os.Environment
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,11 +22,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
@@ -25,9 +39,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -36,8 +53,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.bsalogistics.securitypatroli.BuildConfig
 import com.bsalogistics.securitypatroli.component.AlertDialogModel
 import com.bsalogistics.securitypatroli.component.AlertDialogType
 import com.bsalogistics.securitypatroli.component.ButtonType
@@ -48,17 +71,32 @@ import com.bsalogistics.securitypatroli.component.MyButton
 import com.bsalogistics.securitypatroli.component.MyToolbar
 import com.bsalogistics.securitypatroli.network.APIResponse
 import com.bsalogistics.securitypatroli.network.Area
-import com.bsalogistics.securitypatroli.network.AreaFormTransaction
 import com.bsalogistics.securitypatroli.network.FormAreaBody
 import com.bsalogistics.securitypatroli.screen.areasecurity.AreaEvent
 import com.bsalogistics.securitypatroli.screen.areasecurity.AreaListSecurityViewModel
+import com.bsalogistics.securitypatroli.utils.PreferencesManager
 import com.bsalogistics.securitypatroli.utils.ReqLocationPermission
+import com.bsalogistics.securitypatroli.utils.addWatermark
+import com.bsalogistics.securitypatroli.utils.bitmapToFile
 import com.bsalogistics.securitypatroli.utils.calcCrow
 import com.bsalogistics.securitypatroli.utils.getCurrentLocationScanner
 import com.bsalogistics.securitypatroli.utils.roundOffDecimal
+import com.bsalogistics.securitypatroli.utils.timeMark
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.launch
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import timber.log.Timber
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Objects
+import java.util.UUID
+
 
 @Composable
 fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityViewModel = hiltViewModel(), areaName: String) {
@@ -164,6 +202,7 @@ fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityView
 private fun AreaInput(navController: NavController, areaFormTransaction: Area, viewModel: AreaListSecurityViewModel = hiltViewModel()) {
 
     val context = LocalContext.current
+    val user = PreferencesManager(context).getDataUser()
     val fusedLocationProviderClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
 
     val checkPermission = rememberSaveable {
@@ -181,6 +220,8 @@ private fun AreaInput(navController: NavController, areaFormTransaction: Area, v
     val keterangan = rememberSaveable {
         mutableStateOf("")
     }
+
+    val uri = remember { mutableStateOf<Uri?>(null) }
 
     viewModel.eventAreaForm.collectAsState().value.let { state ->
         if (state is UiAreaFormEvent.TryGetLocation) {
@@ -287,9 +328,16 @@ private fun AreaInput(navController: NavController, areaFormTransaction: Area, v
                     val selisih = calcCrow(latitude.doubleValue, longitude.doubleValue, areaFormTransaction.latitude, areaFormTransaction.longitude)
                     Timber.tag("MYTAG").e("Selisih ${roundOffDecimal(selisih)}")
                     if (selisih < 10.0) {
-                        viewModel.onEvent(AreaEvent.SaveFormSecurity(areaBody = FormAreaBody(
-                            userid = "admin@admin.com", area = areaFormTransaction.name, latitude_actual = latitude.doubleValue, longitude_actual = longitude.doubleValue, keterangan = keterangan.value
-                        ) ) )
+                        viewModel.onEvent(
+                            AreaEvent.SaveFormSecurityWithPhoto(
+                                photos = createMultipartBody(
+                                    path = viewModel.uri[0].path ?: "",
+                                    area = FormAreaBody(
+                                        userid = user.userid, area = areaFormTransaction.name, latitude_actual = latitude.doubleValue, longitude_actual = longitude.doubleValue, keterangan = keterangan.value
+                                    )
+                                )
+                            )
+                        )
                     } else {
                         viewModel.sendAreaFormEvent(UiAreaFormEvent.OutOfArea)
                     }
@@ -326,17 +374,167 @@ private fun AreaScan(lokasi: String = "Lokasi") {
 
 @Preview(showBackground = true)
 @Composable
-private fun BoxPhoto() {
-    OutlinedCard(modifier = Modifier
-        .fillMaxWidth()
-        .height(200.dp)
-        .clickable {
+private fun BoxPhoto(viewModel: AreaListSecurityViewModel = hiltViewModel()) {
 
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val user = PreferencesManager(context).getDataUser()
+
+    var selectedUri = remember {
+        mutableStateOf<Uri>(Uri.EMPTY)
+    }
+
+    val openDialog = rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    val file = context.createImageFile()
+    val uri = FileProvider.getUriForFile(
+        Objects.requireNonNull(context),
+        BuildConfig.APPLICATION_ID + ".provider", file
+    )
+
+    var capturedImageUri by remember {
+        mutableStateOf<Uri>(Uri.EMPTY)
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = {
+            if (it) {
+
+                scope.launch {
+
+                    val path = getRealPathFromURI(uri, context)
+
+                    val newFile = File(path!!)
+
+                    val uriNew = Uri.fromFile(
+                        bitmapToFile(context, addWatermark(BitmapFactory.decodeFile(newFile.path), timeMark() ))
+                    )
+
+                    capturedImageUri = uriNew
+                    viewModel.addUri(uriNew)
+                }
+
+            }
         }
-    ) {
-        Column(verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
-            Icon(Icons.Filled.AddAPhoto, contentDescription = "take photo")
-            Text(text = "Tap untuk mengambil foto")
+    )
+
+    MyAlertDialog(AlertDialogModel(showDialog = openDialog.value, msg = "Hapus foto?", typeDialog = AlertDialogType.CONFIRM), onConfirm = {
+        openDialog.value = false
+        viewModel.removeUri(uri = selectedUri.value)
+    }, onDismiss = {
+        openDialog.value = false
+    } )
+
+    Column (verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+        OutlinedCard(modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clickable {
+                cameraLauncher.launch(uri)
+            }
+        ) {
+            Column(verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
+                Icon(Icons.Filled.AddAPhoto, contentDescription = "take photo")
+                Text(text = "Tap untuk mengambil foto")
+            }
+        }
+
+        if (viewModel.getListUri().isNotEmpty()) {
+            viewModel.getListUri().forEach { uriCurrent ->
+
+                OutlinedCard(modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clickable {
+                    }
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(uriCurrent)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable {
+                                selectedUri.value = uriCurrent
+                                openDialog.value = true
+                            }
+                    )
+                }
+
+
+            }
+
         }
     }
 }
+
+fun Context.createImageFile(): File {
+    // Create an image file name
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
+    val imageFileName = "JPEG_" + timeStamp + "_"
+    val image = File.createTempFile(
+        imageFileName, /* prefix */
+        ".jpg", /* suffix */
+        externalCacheDir      /* directory */
+    )
+
+    return image
+}
+
+fun createMultipartBody(path : String, area: FormAreaBody) : MultipartBody {
+    val file = File(path)
+    return MultipartBody.Builder()
+        .setType(MultipartBody.FORM)
+        .addFormDataPart("userid", area.userid)
+        .addFormDataPart("area", area.area)
+        .addFormDataPart("latitude_actual", area.latitude_actual.toString())
+        .addFormDataPart("longitude_actual", area.longitude_actual.toString())
+        .addFormDataPart("keterangan", area.keterangan)
+        .addFormDataPart("image", file.name, file.asRequestBody())
+        .build()
+}
+
+
+fun getRealPathFromURI(uri: Uri, context: Context): String? {
+    val returnCursor = context.contentResolver.query(uri, null, null, null, null)
+    val nameIndex =  returnCursor!!.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+    val sizeIndex = returnCursor.getColumnIndex(OpenableColumns.SIZE)
+    returnCursor.moveToFirst()
+    val name = returnCursor.getString(nameIndex)
+    val size = returnCursor.getLong(sizeIndex).toString()
+    val file = File(context.filesDir, name)
+    try {
+        val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+        val outputStream = FileOutputStream(file)
+        var read = 0
+        val maxBufferSize = 1 * 1024 * 1024
+        val bytesAvailable: Int = inputStream?.available() ?: 0
+        //int bufferSize = 1024;
+        val bufferSize = Math.min(bytesAvailable, maxBufferSize)
+        val buffers = ByteArray(bufferSize)
+        while (inputStream?.read(buffers).also {
+                if (it != null) {
+                    read = it
+                }
+            } != -1) {
+            outputStream.write(buffers, 0, read)
+        }
+        Timber.tag("MYTAG").e("File Size " + file.length())
+        inputStream?.close()
+        outputStream.close()
+        Timber.tag("MYTAG").e("File Path " + file.path)
+
+    } catch (e: java.lang.Exception) {
+        Timber.tag("MYTAG").e("Exception "+e.message!!)
+    }
+    return file.path
+}
+
+
