@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.bsalogistics.securitypatroli.screen.areasecurity.AreaListSecurity
+import com.bsalogistics.securitypatroli.screen.areasecurity.form.AreaFormDetailScreen
 import com.bsalogistics.securitypatroli.screen.areasecurity.form.AreaFormScreen
 import com.bsalogistics.securitypatroli.screen.areasecurity.form.ScannerSecurityScreen
 import com.bsalogistics.securitypatroli.screen.auth.dashboard.DashboardScreen
@@ -91,6 +92,13 @@ fun NavGraphBuilder.areaGraph(navController: NavController) {
             arguments = listOf(navArgument("areaName") { type = NavType.StringType })) { backStackEntry ->
 
             AreaFormScreen(navController = navController, areaName = backStackEntry.arguments?.getString("areaName") ?: "Null")
+        }
+
+        composable(
+            route = "${NavigationRoutes.Area.AreaFormDetailScreen.route}/{areaId}",
+            arguments = listOf(navArgument("areaId") { type = NavType.StringType })) { backStackEntry ->
+
+            AreaFormDetailScreen(navController = navController, areaId = backStackEntry.arguments?.getString("areaId") ?: "Null")
         }
 
         composable(route = NavigationRoutes.Area.ScannerSecurityScreen.route) {

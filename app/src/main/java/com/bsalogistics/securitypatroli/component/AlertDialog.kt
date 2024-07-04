@@ -21,6 +21,7 @@ enum class AlertDialogType {
     OK,
     SUCCESS,
     FAILURE,
+    FAILUREWITHDISMISS,
 }
 
 data class AlertDialogModel (
@@ -205,7 +206,38 @@ fun AlertDialogWithIcon(
                     ) {
                         Text("OK")
                     }
+                }
+            )
+        }
+
+        if (type == AlertDialogType.FAILUREWITHDISMISS) {
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                icon = {
+                    Image(
+                        painterResource(R.drawable.cancel),
+                        contentDescription = "",
+                        modifier = Modifier.width(50.dp)
+                    )
                 },
+                title = {
+                    Text(desc)
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = onConfirm
+                    ) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = onDismiss
+                    ) {
+                        Text("Batal")
+                    }
+
+                }
             )
         }
 

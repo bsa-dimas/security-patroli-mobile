@@ -13,6 +13,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,9 +35,11 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -44,6 +47,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
@@ -84,6 +88,8 @@ import com.bsalogistics.securitypatroli.utils.roundOffDecimal
 import com.bsalogistics.securitypatroli.utils.timeMark
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -104,6 +110,7 @@ fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityView
     val checkAreaState by viewModel.checkAreaFormTransaction.collectAsState(null)
     val saveAreaState by viewModel.saveFormSecurity.collectAsState(null)
     val eventAreaFormState by viewModel.eventAreaForm.collectAsState(null)
+    val scope = rememberCoroutineScope()
 
     val openDialog = rememberSaveable {
         mutableStateOf(false)
@@ -113,22 +120,78 @@ fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityView
         mutableStateOf<Area>(Area())
     }
 
+    val countTryGetLocation = rememberSaveable { mutableIntStateOf(0) }
+
     when(eventAreaFormState) {
-        UiAreaFormEvent.CheckingArea -> {}
         UiAreaFormEvent.OutOfArea -> {
-            openDialog.value = true
-            MyAlertDialog(AlertDialogModel(showDialog = openDialog.value, msg = "Gagal dalam range area!\nSilahkan bergeser dan coba lagi", typeDialog = AlertDialogType.CONFIRM),
-                onConfirm = {
-                    openDialog.value.not()
-                    viewModel.sendAreaFormEvent(UiAreaFormEvent.TryGetLocation)
-                },
-                onDismiss = {
-                    openDialog.value = false
-                    viewModel.sendAreaFormEvent(UiAreaFormEvent.Init)
-                }
-            )
+
+            if (countTryGetLocation.intValue > 2) {
+                openDialog.value = true
+                MyAlertDialog(AlertDialogModel(showDialog = openDialog.value, msg = "Sertakan photo area sekitar jika ingin tetap melanjutkan proses!", typeDialog = AlertDialogType.FAILUREWITHDISMISS),
+                    onConfirm = {
+                        openDialog.value.not()
+                        countTryGetLocation.intValue = 0
+                        viewModel.requireTakepicture.value = true
+                        viewModel.sendAreaFormEvent(UiAreaFormEvent.Init)
+
+                    },
+                    onDismiss = {
+                        openDialog.value = false
+                        viewModel.sendAreaFormEvent(UiAreaFormEvent.Init)
+                    }
+                )
+            } else {
+                openDialog.value = true
+                MyAlertDialog(AlertDialogModel(showDialog = openDialog.value, msg = "Gagal dalam range area!\nSilahkan bergeser dan coba lagi", typeDialog = AlertDialogType.CONFIRM),
+                    onConfirm = {
+                        openDialog.value.not()
+
+                        scope.launch {
+
+                            countTryGetLocation.intValue += 1
+                            Timber.tag("MYTAG").e("countTryGetLocation: ${countTryGetLocation.intValue}")
+
+                            viewModel.sendAreaFormEvent(UiAreaFormEvent.LoadingGetLocation)
+                            delay(2000)
+                            viewModel.sendAreaFormEvent(UiAreaFormEvent.TryGetLocation)
+                        }
+
+                    },
+                    onDismiss = {
+                        openDialog.value = false
+                        viewModel.sendAreaFormEvent(UiAreaFormEvent.Init)
+                    }
+                )
+            }
+
+
         }
-        UiAreaFormEvent.TryGetLocation -> {}
+        UiAreaFormEvent.TryGetLocation -> {
+        }
+        UiAreaFormEvent.LoadingGetLocation -> {
+            LoadingDialog("Mencari lokasi saat ini")
+        }
+        UiAreaFormEvent.SuccessGetLocation -> {
+
+            viewModel.sendAreaFormEvent(UiAreaFormEvent.Init)
+
+        }
+        UiAreaFormEvent.FailedGetLocation -> {
+            openDialog.value = true
+
+            MyAlertDialog(AlertDialogModel(showDialog = openDialog.value, msg = "Gagal mendapatkan lokasi", typeDialog = AlertDialogType.FAILURE), onConfirm = {
+                openDialog.value.not()
+                navController.navigateUp()
+            } )
+        }
+        UiAreaFormEvent.RequireFormData -> {
+            openDialog.value = true
+
+            MyAlertDialog(AlertDialogModel(showDialog = openDialog.value, msg = "Data belum diisi!", typeDialog = AlertDialogType.FAILURE), onConfirm = {
+                openDialog.value.not()
+            } )
+
+        }
         else -> {}
     }
 
@@ -144,6 +207,7 @@ fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityView
 
                 MyAlertDialog(AlertDialogModel(showDialog = openDialog.value, msg = it, typeDialog = AlertDialogType.FAILURE), onConfirm = {
                     openDialog.value.not()
+                    navController.navigateUp()
                     viewModel.onEvent(AreaEvent.onClickErrorScanArea)
                 } )
             }
@@ -157,8 +221,6 @@ fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityView
             checkAreaState?.data?.data?.let {
                 areaFormTransactionModel.value = it
             }
-
-            Timber.tag("MYTAG").e("Success")
         }
         null -> {}
     }
@@ -221,9 +283,8 @@ private fun AreaInput(navController: NavController, areaFormTransaction: Area, v
         mutableStateOf("")
     }
 
-    val uri = remember { mutableStateOf<Uri?>(null) }
-
     viewModel.eventAreaForm.collectAsState().value.let { state ->
+
         if (state is UiAreaFormEvent.TryGetLocation) {
             getCurrentLocationScanner(
                 onGetCurrentLocationSuccess = {
@@ -231,28 +292,51 @@ private fun AreaInput(navController: NavController, areaFormTransaction: Area, v
                     latitude.doubleValue = it.first
                     longitude.doubleValue = it.second
 
+
+                    viewModel.sendAreaFormEvent(UiAreaFormEvent.SuccessGetLocation)
+
                     /**
                      * Function save
                      */
                     val selisih = calcCrow(latitude.doubleValue, longitude.doubleValue, areaFormTransaction.latitude, areaFormTransaction.longitude)
-                    Timber.tag("MYTAG").e("Selisih ${roundOffDecimal(selisih)}")
+
                     if (selisih < 10.0) {
-                        viewModel.onEvent(AreaEvent.SaveFormSecurity(areaBody = FormAreaBody(
-                            userid = "admin@admin.com", area = areaFormTransaction.name, latitude_actual = latitude.doubleValue, longitude_actual = longitude.doubleValue, keterangan = keterangan.value
-                        ) ) )
+                        if (viewModel.requireTakepicture.value && viewModel.getListUri().isNotEmpty()) {
+                            viewModel.onEvent(
+                                AreaEvent.SaveFormSecurityWithPhoto(
+                                    photos = createMultipartBodyMultiple(
+                                        uris = viewModel.uri,
+                                        area = FormAreaBody(
+                                            userid = user.userid,
+                                            area = areaFormTransaction.name,
+                                            latitude_actual = latitude.doubleValue,
+                                            longitude_actual = longitude.doubleValue,
+                                            distance = selisih,
+                                            keterangan = keterangan.value
+                                        )
+                                    )
+                                )
+                            )
+                        } else {
+                            viewModel.sendAreaFormEvent(UiAreaFormEvent.RequireFormData)
+                        }
                     } else {
                         viewModel.sendAreaFormEvent(UiAreaFormEvent.OutOfArea)
                     }
 
+                    Timber.tag("MYTAG").e("Selisih ${roundOffDecimal(selisih)}")
                     Timber
                         .tag("MYTAG")
                         .e("Try Again onGetCurrentLocationSuccess LATITUDE: ${it.first}, LONGITUDE: ${it.second})}")
                 },
                 onGetCurrentLocationFailed = {
 
+                    viewModel.sendAreaFormEvent(UiAreaFormEvent.FailedGetLocation)
+
                     Timber
                         .tag("MYTAG")
                         .e("Try Again onGetCurrentLocationFailed ${it.localizedMessage}")
+
                 }, fusedLocationProviderClient = fusedLocationProviderClient, context = context
             )
         }
@@ -301,49 +385,89 @@ private fun AreaInput(navController: NavController, areaFormTransaction: Area, v
         MyToolbar(navController = navController, title = "Patroli Area")
 
         Column(modifier = Modifier
+            .weight(1f)
             .verticalScroll(rememberScrollState())
             .padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
             AreaScan(lokasi = areaFormTransaction.name)
 
-            BoxPhoto()
-
             InputTextField (
+                input = keterangan.value,
                 onValueChanged = {
                     keterangan.value = it
+//                    viewModel.keterangan.value = it
                 },
                 label = "Keterangan",
                 isError = false,
                 error = "Please Enter Valid Email"
             )
 
+            if (viewModel.requireTakepicture.value) {
+                BoxPhoto()
+            }
+
             MyButton(modifier = Modifier.fillMaxWidth(),
                 enabled = true,
                 text = "Simpan",
                 buttonType = ButtonType.PRIMARY, onClick = {
 
+
                     /**
-                     * Function save
+                     * Function save with photo
                      */
-                    val selisih = calcCrow(latitude.doubleValue, longitude.doubleValue, areaFormTransaction.latitude, areaFormTransaction.longitude)
-                    Timber.tag("MYTAG").e("Selisih ${roundOffDecimal(selisih)}")
-                    if (selisih < 10.0) {
-                        viewModel.onEvent(
-                            AreaEvent.SaveFormSecurityWithPhoto(
-                                photos = createMultipartBody(
-                                    path = viewModel.uri[0].path ?: "",
-                                    area = FormAreaBody(
-                                        userid = user.userid, area = areaFormTransaction.name, latitude_actual = latitude.doubleValue, longitude_actual = longitude.doubleValue, keterangan = keterangan.value
+                    if (viewModel.requireTakepicture.value) {
+                        val selisih = calcCrow(latitude.doubleValue, longitude.doubleValue, areaFormTransaction.latitude, areaFormTransaction.longitude)
+                        if (viewModel.requireTakepicture.value && viewModel.getListUri().isNotEmpty()) {
+                            viewModel.onEvent(
+                                AreaEvent.SaveFormSecurityWithPhoto(
+                                    photos = createMultipartBodyMultiple(
+                                        uris = viewModel.uri,
+                                        area = FormAreaBody(
+                                            userid = user.userid,
+                                            area = areaFormTransaction.name,
+                                            latitude_actual = latitude.doubleValue,
+                                            longitude_actual = longitude.doubleValue,
+                                            distance = selisih,
+                                            keterangan = keterangan.value
+                                        )
                                     )
                                 )
                             )
-                        )
+                        } else {
+                            viewModel.sendAreaFormEvent(UiAreaFormEvent.RequireFormData)
+                        }
+
                     } else {
-                        viewModel.sendAreaFormEvent(UiAreaFormEvent.OutOfArea)
+
+                        /**
+                         * Function save without photo
+                         */
+                        val selisih = calcCrow(latitude.doubleValue, longitude.doubleValue, areaFormTransaction.latitude, areaFormTransaction.longitude)
+                        Timber.tag("MYTAG").e("Selisih ${roundOffDecimal(selisih)}")
+                        if (selisih < 10.0) {
+                            viewModel.onEvent(
+                                AreaEvent.SaveFormSecurityWithPhoto(
+                                    photos = createMultipartBodyMultiple(
+                                        uris = viewModel.uri,
+                                        area = FormAreaBody(
+                                            userid = user.userid,
+                                            area = areaFormTransaction.name,
+                                            latitude_actual = latitude.doubleValue,
+                                            longitude_actual = longitude.doubleValue,
+                                            distance = selisih,
+                                            keterangan = keterangan.value
+                                        )
+                                    )
+                                )
+                            )
+                        } else {
+                            viewModel.sendAreaFormEvent(UiAreaFormEvent.OutOfArea)
+                        }
                     }
 
 
-                })
+
+            })
 
         }
     }
@@ -380,7 +504,7 @@ private fun BoxPhoto(viewModel: AreaListSecurityViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val user = PreferencesManager(context).getDataUser()
 
-    var selectedUri = remember {
+    var selectedUri = rememberSaveable {
         mutableStateOf<Uri>(Uri.EMPTY)
     }
 
@@ -388,13 +512,7 @@ private fun BoxPhoto(viewModel: AreaListSecurityViewModel = hiltViewModel()) {
         mutableStateOf(false)
     }
 
-    val file = context.createImageFile()
-    val uri = FileProvider.getUriForFile(
-        Objects.requireNonNull(context),
-        BuildConfig.APPLICATION_ID + ".provider", file
-    )
-
-    var capturedImageUri by remember {
+    var capturedImageUri by rememberSaveable {
         mutableStateOf<Uri>(Uri.EMPTY)
     }
 
@@ -404,8 +522,7 @@ private fun BoxPhoto(viewModel: AreaListSecurityViewModel = hiltViewModel()) {
             if (it) {
 
                 scope.launch {
-
-                    val path = getRealPathFromURI(uri, context)
+                    val path = getRealPathFromURI(viewModel.uriChoosePhoto.value, context)
 
                     val newFile = File(path!!)
 
@@ -413,11 +530,12 @@ private fun BoxPhoto(viewModel: AreaListSecurityViewModel = hiltViewModel()) {
                         bitmapToFile(context, addWatermark(BitmapFactory.decodeFile(newFile.path), timeMark() ))
                     )
 
-                    capturedImageUri = uriNew
                     viewModel.addUri(uriNew)
+                    capturedImageUri = uriNew
                 }
 
             }
+
         }
     )
 
@@ -428,51 +546,51 @@ private fun BoxPhoto(viewModel: AreaListSecurityViewModel = hiltViewModel()) {
         openDialog.value = false
     } )
 
-    Column (verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    OutlinedCard(modifier = Modifier
+        .fillMaxWidth()
+        .height(200.dp)
+        .clickable {
 
-        OutlinedCard(modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .clickable {
-                cameraLauncher.launch(uri)
-            }
-        ) {
-            Column(verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
-                Icon(Icons.Filled.AddAPhoto, contentDescription = "take photo")
-                Text(text = "Tap untuk mengambil foto")
-            }
+            viewModel.createUriPhoto(context)
+
+            cameraLauncher.launch(viewModel.uriChoosePhoto.value)
         }
+    ) {
+        Column(verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
+            Icon(Icons.Filled.AddAPhoto, contentDescription = "take photo")
+            Text(text = "Tap untuk mengambil foto")
+        }
+    }
+    Text(text = "*Sertakan photo area sekitar", color = Color.Red)
 
-        if (viewModel.getListUri().isNotEmpty()) {
-            viewModel.getListUri().forEach { uriCurrent ->
+    if (viewModel.getListUri().isNotEmpty()) {
+        viewModel.getListUri().forEach { uriCurrent ->
 
-                OutlinedCard(modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .clickable {
-                    }
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(uriCurrent)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable {
-                                selectedUri.value = uriCurrent
-                                openDialog.value = true
-                            }
-                    )
+            OutlinedCard(modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clickable {
                 }
-
-
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(uriCurrent)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable {
+                            selectedUri.value = uriCurrent
+                            openDialog.value = true
+                        }
+                )
             }
 
         }
     }
+
 }
 
 fun Context.createImageFile(): File {
@@ -500,6 +618,28 @@ fun createMultipartBody(path : String, area: FormAreaBody) : MultipartBody {
         .addFormDataPart("image", file.name, file.asRequestBody())
         .build()
 }
+
+fun createMultipartBodyMultiple(uris : List<Uri>, area: FormAreaBody) : MultipartBody {
+
+    val part = MultipartBody.Builder()
+        .setType(MultipartBody.FORM)
+        .addFormDataPart("userid", area.userid)
+        .addFormDataPart("area", area.area)
+        .addFormDataPart("latitude_actual", area.latitude_actual.toString())
+        .addFormDataPart("longitude_actual", area.longitude_actual.toString())
+        .addFormDataPart("keterangan", area.keterangan)
+        .addFormDataPart("distance", area.distance.toString())
+        .addFormDataPart("countimage", uris.size.toString())
+
+    uris.forEachIndexed { i, e ->
+        val file = File(e.path!!)
+        part.addFormDataPart("image$i", file.name, file.asRequestBody())
+    }
+
+    return part
+        .build()
+}
+
 
 
 fun getRealPathFromURI(uri: Uri, context: Context): String? {

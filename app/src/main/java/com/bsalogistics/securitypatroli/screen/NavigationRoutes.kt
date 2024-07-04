@@ -15,6 +15,7 @@ sealed class NavigationRoutes {
         object AreaListForSecurity : Area(route = "AreaListForSecurity")
         object ScannerSecurityScreen : Area(route = "ScannerSecurityScreen")
         object AreaFormScreen : Area(route = "AreaFormScreen")
+        object AreaFormDetailScreen : Area(route = "AreaFormDetailScreen")
     }
 
 }

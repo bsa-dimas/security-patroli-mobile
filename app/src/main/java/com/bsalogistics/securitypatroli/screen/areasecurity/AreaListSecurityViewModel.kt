@@ -1,16 +1,16 @@
 package com.bsalogistics.securitypatroli.screen.areasecurity
 
 
-import android.R.attr.password
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bsalogistics.securitypatroli.BuildConfig
 import com.bsalogistics.securitypatroli.network.APIResponse
 import com.bsalogistics.securitypatroli.network.APIStatus
 import com.bsalogistics.securitypatroli.network.ApiInterfaceImpl
@@ -21,23 +21,17 @@ import com.bsalogistics.securitypatroli.network.NetworkService
 import com.bsalogistics.securitypatroli.screen.NavigationRoutes
 import com.bsalogistics.securitypatroli.screen.UiEvent
 import com.bsalogistics.securitypatroli.screen.areasecurity.form.UiAreaFormEvent
+import com.bsalogistics.securitypatroli.screen.areasecurity.form.createImageFile
 import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
-import id.zelory.compressor.Compressor
-import id.zelory.compressor.constraint.format
-import id.zelory.compressor.constraint.quality
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
 import java.io.File
-import java.lang.String.format
+import java.util.Objects
 import javax.inject.Inject
 
 
@@ -48,8 +42,14 @@ class AreaListSecurityViewModel @Inject constructor(apiService: NetworkService, 
     private val _uri = mutableStateListOf<Uri>()
     val uri: List<Uri> get() = _uri
 
+    private val _requireTakepicture = mutableStateOf(false)
+    val requireTakepicture: MutableState<Boolean> get() = _requireTakepicture
+
     private val _file = mutableStateOf<File?>(null)
     var file: MutableState<File?> = _file
+
+    private val _uriChoosePhoto = mutableStateOf<Uri>(Uri.EMPTY)
+    var uriChoosePhoto: MutableState<Uri> = _uriChoosePhoto
 
     private val _event = Channel<UiEvent>()
     val event = _event.receiveAsFlow()
@@ -63,8 +63,18 @@ class AreaListSecurityViewModel @Inject constructor(apiService: NetworkService, 
     private val _checkAreaFormTransaction = MutableStateFlow<APIResponse<BaseResponse<Area>>>(APIResponse.Loading(null))
     val checkAreaFormTransaction: StateFlow<APIResponse<BaseResponse<Area>>> = _checkAreaFormTransaction
 
-    private val _saveFormSecurity = MutableStateFlow<APIResponse<BaseResponse<AreaFormTransaction>>>(APIResponse.Error(null))
-    val saveFormSecurity: StateFlow<APIResponse<BaseResponse<AreaFormTransaction>>> = _saveFormSecurity
+    private val _saveFormSecurity = MutableStateFlow<APIResponse<BaseResponse<Boolean>>>(APIResponse.Error(null))
+    val saveFormSecurity: StateFlow<APIResponse<BaseResponse<Boolean>>> = _saveFormSecurity
+
+    fun createUriPhoto(context: Context) : Uri {
+        val file = context.createImageFile()
+        _uriChoosePhoto.value = FileProvider.getUriForFile(
+            Objects.requireNonNull(context),
+            BuildConfig.APPLICATION_ID + ".provider", file
+        )
+
+        return _uriChoosePhoto.value
+    }
 
     fun getListUri() : List<Uri>{
         return uri
@@ -187,41 +197,7 @@ class AreaListSecurityViewModel @Inject constructor(apiService: NetworkService, 
             }
 
             is AreaEvent.SaveFormSecurity -> {
-                _saveFormSecurity.value = APIResponse.Loading(null)
-                viewModelScope.launch {
-                    try {
 
-                        apiInterfaceImpl.saveArea( areaBody = event.areaBody )
-                            .collect { res ->
-
-                                when (res.status) {
-                                    APIStatus.LOADING -> {
-
-                                    }
-                                    APIStatus.SUCCESS -> {
-                                        res.data?.let {
-                                            if (it.success) {
-                                                _saveFormSecurity.value = APIResponse.Success(it)
-                                            } else {
-                                                _saveFormSecurity.value = APIResponse.Error(errorMsg = res.data.message )
-                                            }
-                                        }
-                                    }
-                                    APIStatus.ERROR -> {
-                                        _saveFormSecurity.value = APIResponse.Error(errorMsg = res.errorMsg )
-                                    }
-                                }
-
-                                Timber.tag("MYTAG").e("getListArea...${Gson().toJson(res)}")
-                            }
-
-                    } catch (ex: Exception) {
-
-                        _saveFormSecurity.value = APIResponse.Error(errorMsg = ex.localizedMessage )
-
-                        Timber.tag("MYTAG").e("getListArea catch...${ex.localizedMessage}")
-                    }
-                }
             }
 
             is AreaEvent.SaveFormSecurityWithPhoto -> {
@@ -260,6 +236,10 @@ class AreaListSecurityViewModel @Inject constructor(apiService: NetworkService, 
                         Timber.tag("MYTAG").e("getListArea catch...${ex.localizedMessage}")
                     }
                 }
+            }
+
+            is AreaEvent.onClickArea -> {
+                sendEvent(UiEvent.GotoAreaDetail(event.area))
             }
 
             else -> {}

@@ -1,6 +1,7 @@
 package com.bsalogistics.securitypatroli.screen.areasecurity
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,8 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.bsalogistics.securitypatroli.R
@@ -64,6 +67,10 @@ fun AreaListSecurity(navController: NavController, viewModel: AreaListSecurityVi
 
                 is UiEvent.Navigate -> {
                     navController.navigate(route = event.route)
+                }
+
+                is UiEvent.GotoAreaDetail -> {
+                    navController.navigate(route = "${NavigationRoutes.Area.AreaFormDetailScreen.route}/${event.area.id}")
                 }
 
                 is UiEvent.SignOut -> {
@@ -199,29 +206,46 @@ private fun ViewList(list : MutableList<AreaFormTransaction> = mutableListOf()) 
         ListEmpty("Data Area Kosong")
 
     } else {
-        LazyColumn (modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(list.size) { i ->
-                AreaListItem(list[i])
+        Column(Modifier.padding(top = 10.dp)) {
+            Text(text = "Total data: ${list.size}", color = Color.Unspecified.copy(alpha = 0.5f), style = TextStyle(fontSize = 12.sp),
+                modifier = Modifier.padding(horizontal = 20.dp))
+            LazyColumn (modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(list.size) { i ->
+                    AreaListItem(list[i])
 
-                if (i < list.lastIndex)
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 10.dp), thickness = 1.dp, color = Color.LightGray)
+                    if (i < list.lastIndex)
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 10.dp), thickness = 1.dp, color = Color.LightGray)
+                }
             }
         }
     }
 }
 
 @Composable
-fun AreaListItem(item : AreaFormTransaction = AreaFormTransaction(area = "Test"), onItemClick: () -> Unit = {}) {
-    Column (modifier = Modifier.padding(20.dp)) {
-        Text(
-            modifier = Modifier,
-            text = item.area,
-            style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(text = "Security: ${item.userid} \nPatroli: ${item.created_at ?: "-"}",
-            color = Color.Unspecified.copy(alpha = 0.5f),
-            style = MaterialTheme.typography.labelSmall)
+fun AreaListItem(item : AreaFormTransaction = AreaFormTransaction(area = "Test"), viewModel: AreaListSecurityViewModel = hiltViewModel()) {
+
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .clickable {
+            viewModel.onEvent(AreaEvent.onClickArea(item))
+        }) {
+
+        Column (modifier = Modifier
+            .padding(20.dp))
+        {
+            Text(
+                modifier = Modifier,
+                text = item.area,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(text = "Security: ${item.userid} \nPatroli: ${item.created_at ?: "-"}",
+                color = Color.Unspecified.copy(alpha = 0.5f),
+                style = MaterialTheme.typography.labelSmall)
+        }
+
     }
+
+
 }

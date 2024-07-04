@@ -2,14 +2,10 @@ package com.bsalogistics.securitypatroli.network
 
 import com.bsalogistics.securitypatroli.models.User
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
-import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
-import retrofit2.http.Multipart
 import retrofit2.http.POST
-import retrofit2.http.Part
 import retrofit2.http.Query
 
 interface NetworkService {
@@ -26,9 +22,17 @@ interface NetworkService {
     @POST("save-form-security")
     suspend fun saveAreaWithPhoto(
         @Body body: MultipartBody
+    ): Response<BaseResponse<Boolean>>
+
+    @POST("save-form-security")
+    suspend fun saveAreaWithPhoto(
+        @Body body: MultipartBody.Part
     ): Response<BaseResponse<AreaFormTransaction>>
 
     @GET("find-area")
     suspend fun findArea(@Query("name") areaName: String): Response<BaseResponse<Area>>
+
+    @GET("get-area-detail")
+    suspend fun areaDetail(@Query("areaId") areaId: String): Response<BaseResponse<AreaDetail>>
 
 }
