@@ -54,6 +54,13 @@ data class Area (
     @SerializedName("longitude") var longitude: Double = 0.0,
 )
 
+data class FormAddAreaBody(
+    @SerializedName("userid") var userid: String = "",
+    @SerializedName("name") var name: String = "",
+    @SerializedName("latitude") var latitude: Double = 0.0,
+    @SerializedName("longitude") var longitude: Double = 0.0,
+)
+
 data class FormAreaBody(
     @SerializedName("userid") var userid: String,
     @SerializedName("area") var area: String,
@@ -61,31 +68,4 @@ data class FormAreaBody(
     @SerializedName("longitude_actual") var longitude_actual: Double,
     @SerializedName("distance") var distance: Double,
     @SerializedName("keterangan") var keterangan: String = "",
-)
-
-data class AreaResponse(
-    @SerializedName("success")
-    var success: Boolean,
-    @SerializedName("data")
-    var `data`: MutableList<AreaFormTransaction>,
-    @SerializedName("message")
-    var message: String
-)
-
-data class FormAreaResponse(
-    @SerializedName("success")
-    var success: Boolean,
-    @SerializedName("data")
-    var `data`: AreaFormTransaction,
-    @SerializedName("message")
-    var message: String
-)
-
-data class FindAreaResponse(
-    @SerializedName("success")
-    var success: Boolean,
-    @SerializedName("data")
-    var `data`: AreaFormTransaction,
-    @SerializedName("message")
-    var message: String
 )

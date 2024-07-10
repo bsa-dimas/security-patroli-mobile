@@ -23,6 +23,8 @@ import com.bsalogistics.securitypatroli.component.ListLoading
 import com.bsalogistics.securitypatroli.component.LoadingDialog
 import com.bsalogistics.securitypatroli.component.MyAlertDialog
 import com.bsalogistics.securitypatroli.network.APIResponse
+import com.bsalogistics.securitypatroli.network.Area
+import com.bsalogistics.securitypatroli.network.BaseResponse
 import com.bsalogistics.securitypatroli.screen.NavigationRoutes
 import com.bsalogistics.securitypatroli.screen.areasecurity.AreaEvent
 import com.bsalogistics.securitypatroli.screen.areasecurity.AreaListSecurityViewModel
@@ -30,20 +32,57 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import com.google.gson.Gson
 import qrscanner.QrScanner
 import timber.log.Timber
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun ScannerSecurityScreen(navController: NavController, onSuccess : (String) -> Unit = {}, onFailed : @Composable (String) -> Unit = {}, onCancel : () -> Unit = {}) {
+fun ScannerSecurityScreen(navController: NavController, viewModel: AreaListSecurityViewModel = hiltViewModel(), onSuccess : (String) -> Unit = {}, onFailed : @Composable (String) -> Unit = {}, onCancel : () -> Unit = {}) {
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
-    BackHandler {
-        navController.navigateUp()
-        navController.currentBackStackEntry
-            ?.savedStateHandle
-            ?.set("areaName", null)
-        onCancel.invoke()
+    val checkAreaState by viewModel.checkAreaFormTransaction.collectAsState(null)
+
+//    BackHandler {
+//        navController.navigateUp()
+//        navController.currentBackStackEntry
+//            ?.savedStateHandle
+//            ?.set("areaName", null)
+//        onCancel.invoke()
+//    }
+
+
+    val openDialog = rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    when (checkAreaState) {
+        is APIResponse.Error -> {
+            (checkAreaState as (APIResponse.Error)).errorMsg?.let {
+
+                openDialog.value = true
+
+                MyAlertDialog(AlertDialogModel(showDialog = openDialog.value, msg = it, typeDialog = AlertDialogType.FAILURE), onConfirm = {
+                    openDialog.value.not()
+                    viewModel.resetStateCheckArea()
+                    navController.navigateUp()
+                } )
+            }
+        }
+        is APIResponse.Loading -> {
+            LoadingDialog("Checking area")
+        }
+
+        is APIResponse.Success -> {
+            (checkAreaState as APIResponse.Success<BaseResponse<Area>>).data?.data?.id?.let {
+
+                viewModel.resetStateCheckArea()
+
+                onSuccess(it)
+            }
+
+        }
+        null -> {}
     }
 
     if (cameraPermissionState.status.isGranted) {
@@ -52,7 +91,8 @@ fun ScannerSecurityScreen(navController: NavController, onSuccess : (String) -> 
             flashlightOn = false,
             launchGallery = false,
             onCompletion = { areaName ->
-                onSuccess(areaName)
+
+                viewModel.onEvent(AreaEvent.FindAreaByName(areaName))
 
                 Timber.tag("MYTAG").e("onCompletion result scan -> $areaName")
             },

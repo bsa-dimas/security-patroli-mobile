@@ -119,4 +119,9 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation ("id.zelory:compressor:3.0.1")
+
+    // The view calendar library
+    implementation ("com.kizitonwose.calendar:view:2.6.0-beta02")
+    // The compose calendar library
+    implementation ("com.kizitonwose.calendar:compose:2.6.0-beta02")
 }

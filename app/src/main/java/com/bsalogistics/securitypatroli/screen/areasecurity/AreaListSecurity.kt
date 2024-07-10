@@ -247,5 +247,4 @@ fun AreaListItem(item : AreaFormTransaction = AreaFormTransaction(area = "Test")
 
     }
 
-
 }

@@ -70,10 +70,13 @@ fun AppName() {
 
 @Composable
 fun Profile() {
+
+    val user = PreferencesManager(LocalContext.current).getDataUser()
+
     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Image(painterResource(id = R.drawable.policeman), contentDescription = "icon", modifier = Modifier.height(100.dp))
-            Text(text = "Policeman", style = MaterialTheme.typography.titleMedium)
+            Text(text = user.name, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -106,10 +109,10 @@ fun BoxList(navController: NavController) {
         .padding(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             BoxItem(text = "List Area", modifier = Modifier.weight(1f), onClick = {
-//                navController.navigate(route = NavigationRoutes.Authenticated.AreaList.route)
+                navController.navigate(route = NavigationRoutes.Area.AreaListForAdmin.route)
             })
-            BoxItem(text = "Tambah Area", modifier = Modifier.weight(1f), onClick = {
-//                navController.navigate(route = NavigationRoutes.Authenticated.AreaForm.route)
+            BoxItem(text = "Report Area", modifier = Modifier.weight(1f), onClick = {
+                navController.navigate(route = NavigationRoutes.Area.ReportAreaScreen.route)
             })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

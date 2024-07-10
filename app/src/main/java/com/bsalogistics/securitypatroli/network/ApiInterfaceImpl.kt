@@ -16,16 +16,32 @@ class ApiInterfaceImpl (
         return apiInterface.getListArea().getApiResponse()
     }
 
+    override suspend fun getListAreaAdmin(): Flow<APIResponse<BaseResponse<MutableList<Area>>>> {
+        return apiInterface.getListAreaAdmin().getApiResponse()
+    }
+
     override suspend fun saveArea(areaBody: FormAreaBody): Flow<APIResponse<BaseResponse<AreaFormTransaction>>> {
         return apiInterface.saveArea(areaBody).getApiResponse()
+    }
+
+    override suspend fun addArea(areaBody: FormAddAreaBody): Flow<APIResponse<BaseResponse<Area>>> {
+        return apiInterface.addArea(areaBody).getApiResponse()
+    }
+
+    override suspend fun dropArea(id: String): Flow<APIResponse<BaseResponse<Area>>> {
+        return apiInterface.dropArea(id).getApiResponse()
     }
 
     override suspend fun saveAreaWithPhoto(image: MultipartBody): Flow<APIResponse<BaseResponse<Boolean>>> {
         return apiInterface.saveAreaWithPhoto(image).getApiResponse()
     }
 
-    override suspend fun findArea(areaName: String): Flow<APIResponse<BaseResponse<Area>>> {
-        return apiInterface.findArea(areaName).getApiResponse()
+    override suspend fun findAreaById(id: String): Flow<APIResponse<BaseResponse<Area>>> {
+        return apiInterface.findAreaById(id).getApiResponse()
+    }
+
+    override suspend fun findAreaByName(name: String): Flow<APIResponse<BaseResponse<Area>>> {
+        return apiInterface.findAreaByName(name).getApiResponse()
     }
 
     override suspend fun areaDetail(areaId: String): Flow<APIResponse<BaseResponse<AreaDetail>>> {

@@ -1,4 +1,4 @@
-package com.bsalogistics.securitypatroli.screen.auth.scanner
+package com.bsalogistics.securitypatroli.screen.areaadmin
 
 import android.Manifest
 import androidx.activity.compose.BackHandler
@@ -9,9 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.bsalogistics.securitypatroli.screen.NavigationRoutes
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -21,16 +19,18 @@ import timber.log.Timber
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun ScannerScreen(navController: NavController, onSuccess : (String) -> Unit = {}, onCancel : () -> Unit = {}) {
+fun ScannerAddAreaScreen(navController: NavController,
+                         onSuccess : (String) -> Unit = {},
+                         onCancel : () -> Unit = {}) {
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
-    BackHandler {
-        navController.navigateUp()
-        navController.currentBackStackEntry
-            ?.savedStateHandle
-            ?.set("areaName", null)
-        onCancel.invoke()
-    }
+//    BackHandler {
+//        navController.navigateUp()
+//        navController.currentBackStackEntry
+//            ?.savedStateHandle
+//            ?.set("areaName", null)
+//        onCancel.invoke()
+//    }
 
     if (cameraPermissionState.status.isGranted) {
         QrScanner(
@@ -38,7 +38,6 @@ fun ScannerScreen(navController: NavController, onSuccess : (String) -> Unit = {
             flashlightOn = false,
             launchGallery = false,
             onCompletion = { areaName ->
-
                 onSuccess(areaName)
 
                 Timber.tag("MYTAG").e("onCompletion result scan -> $areaName")
@@ -64,5 +63,4 @@ fun ScannerScreen(navController: NavController, onSuccess : (String) -> Unit = {
             Text("No Camera Permission", modifier = Modifier.align(Alignment.Center))
         }
     }
-
 }

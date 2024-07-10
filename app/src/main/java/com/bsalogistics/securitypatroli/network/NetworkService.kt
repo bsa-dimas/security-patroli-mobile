@@ -6,6 +6,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface NetworkService {
@@ -15,6 +16,15 @@ interface NetworkService {
 
     @GET("get-area-scanned")
     suspend fun getListArea(): Response<BaseResponse<MutableList<AreaFormTransaction>>>
+
+    @GET("area")
+    suspend fun getListAreaAdmin(): Response<BaseResponse<MutableList<Area>>>
+
+    @POST("area")
+    suspend fun addArea(@Body formArea: FormAddAreaBody): Response<BaseResponse<Area>>
+
+    @POST("area/{id}")
+    suspend fun dropArea(@Path("id") id: String): Response<BaseResponse<Area>>
 
     @POST("save-form-security")
     suspend fun saveArea(@Body formArea: FormAreaBody): Response<BaseResponse<AreaFormTransaction>>
@@ -29,8 +39,11 @@ interface NetworkService {
         @Body body: MultipartBody.Part
     ): Response<BaseResponse<AreaFormTransaction>>
 
-    @GET("find-area")
-    suspend fun findArea(@Query("name") areaName: String): Response<BaseResponse<Area>>
+    @GET("find-area-id")
+    suspend fun findAreaById(@Query("id") id: String): Response<BaseResponse<Area>>
+
+    @GET("find-area-name")
+    suspend fun findAreaByName(@Query("name") name: String): Response<BaseResponse<Area>>
 
     @GET("get-area-detail")
     suspend fun areaDetail(@Query("areaId") areaId: String): Response<BaseResponse<AreaDetail>>

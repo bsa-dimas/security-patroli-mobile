@@ -11,7 +11,7 @@ import androidx.compose.ui.tooling.preview.Preview
 @Preview(showBackground = true)
 @Composable
 fun ListEmpty(s: String = "Data kosong") {
-    Box(modifier = Modifier, contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text = s)
     }
 }

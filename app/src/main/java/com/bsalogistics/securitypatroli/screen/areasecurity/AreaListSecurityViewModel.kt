@@ -22,6 +22,7 @@ import com.bsalogistics.securitypatroli.screen.NavigationRoutes
 import com.bsalogistics.securitypatroli.screen.UiEvent
 import com.bsalogistics.securitypatroli.screen.areasecurity.form.UiAreaFormEvent
 import com.bsalogistics.securitypatroli.screen.areasecurity.form.createImageFile
+import com.google.android.gms.common.api.Api
 import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -60,7 +61,7 @@ class AreaListSecurityViewModel @Inject constructor(apiService: NetworkService, 
     private val _areaFormTransactionScannedList = MutableStateFlow<APIResponse<BaseResponse<MutableList<AreaFormTransaction>>>>(APIResponse.Loading(null))
     val areaFormTransactionScannedList: StateFlow<APIResponse<BaseResponse<MutableList<AreaFormTransaction>>>> = _areaFormTransactionScannedList
 
-    private val _checkAreaFormTransaction = MutableStateFlow<APIResponse<BaseResponse<Area>>>(APIResponse.Loading(null))
+    private val _checkAreaFormTransaction = MutableStateFlow<APIResponse<BaseResponse<Area>>>(APIResponse.Error(null))
     val checkAreaFormTransaction: StateFlow<APIResponse<BaseResponse<Area>>> = _checkAreaFormTransaction
 
     private val _saveFormSecurity = MutableStateFlow<APIResponse<BaseResponse<Boolean>>>(APIResponse.Error(null))
@@ -97,6 +98,12 @@ class AreaListSecurityViewModel @Inject constructor(apiService: NetworkService, 
     fun sendAreaFormEvent(event: UiAreaFormEvent) {
         viewModelScope.launch {
             _eventAreaForm.value = event
+        }
+    }
+
+    fun resetStateCheckArea() {
+        viewModelScope.launch {
+            _checkAreaFormTransaction.value = APIResponse.Error(null)
         }
     }
 
@@ -144,11 +151,11 @@ class AreaListSecurityViewModel @Inject constructor(apiService: NetworkService, 
                 sendEvent(UiEvent.SignOut)
             }
 
-            is AreaEvent.CheckArea -> {
+            is AreaEvent.FindAreaByName -> {
 
                 viewModelScope.launch {
                     try {
-                        apiInterfaceImpl.findArea(event.areaName)
+                        apiInterfaceImpl.findAreaByName(event.name)
                             .collect { res ->
 
                                 when (res.status) {
@@ -170,7 +177,46 @@ class AreaListSecurityViewModel @Inject constructor(apiService: NetworkService, 
                                     }
                                 }
 
-                                Timber.tag("MYTAG").e("getListArea...${Gson().toJson(res)}")
+                                Timber.tag("MYTAG").e("findArea...${Gson().toJson(res)}")
+                            }
+
+                    } catch (ex: Exception) {
+
+                        _checkAreaFormTransaction.value = APIResponse.Error(errorMsg = ex.localizedMessage )
+
+                        Timber.tag("MYTAG").e("findArea catch...${ex.localizedMessage}")
+                    }
+                }
+
+            }
+
+            is AreaEvent.FindAreaById -> {
+
+                viewModelScope.launch {
+                    try {
+                        apiInterfaceImpl.findAreaById(event.id)
+                            .collect { res ->
+
+                                when (res.status) {
+                                    APIStatus.LOADING -> {
+
+                                    }
+                                    APIStatus.SUCCESS -> {
+                                        res.data?.let {
+                                            if (it.success) {
+                                                _checkAreaFormTransaction.value = APIResponse.Success(it)
+                                            } else {
+                                                _checkAreaFormTransaction.value = APIResponse.Error(errorMsg = res.data.message )
+
+                                            }
+                                        }
+                                    }
+                                    APIStatus.ERROR -> {
+                                        _checkAreaFormTransaction.value = APIResponse.Error(errorMsg = res.errorMsg )
+                                    }
+                                }
+
+                                Timber.tag("MYTAG").e("findArea...${Gson().toJson(res)}")
                             }
 
                     } catch (ex: Exception) {

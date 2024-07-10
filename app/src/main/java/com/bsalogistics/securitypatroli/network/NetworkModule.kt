@@ -31,9 +31,9 @@ class NetworkModule {
     @Provides
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
-//        val BASE_URL = "http://192.168.1.8/ebooking/public/api/"
-//        val BASE_URL = "http://10.0.2.2/ebooking/public/api/"
-        val BASE_URL = "http://172.31.97.61/ebooking/public/api/"
+//        val BASE_URL = "http://192.168.1.8/api-security-patroli/public/api/"
+//        val BASE_URL = "http://10.0.2.2/api-security-patroli/public/api/"
+        val BASE_URL = "http://172.31.97.61/api-security-patroli/public/api/"
 
         return Retrofit.Builder()
                 .baseUrl(BASE_URL)

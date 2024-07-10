@@ -1,19 +1,12 @@
 package com.bsalogistics.securitypatroli.screen.areasecurity.form
 
-import android.Manifest
 import android.content.Context
-import android.content.ContextWrapper
-import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Environment
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,19 +16,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -57,14 +47,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
-import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.bsalogistics.securitypatroli.BuildConfig
 import com.bsalogistics.securitypatroli.component.AlertDialogModel
 import com.bsalogistics.securitypatroli.component.AlertDialogType
 import com.bsalogistics.securitypatroli.component.ButtonType
@@ -88,7 +74,7 @@ import com.bsalogistics.securitypatroli.utils.roundOffDecimal
 import com.bsalogistics.securitypatroli.utils.timeMark
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.GlobalScope
+import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
@@ -97,19 +83,21 @@ import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Objects
-import java.util.UUID
 
+/**
+ * State
+ *
+ */
 
 @Composable
-fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityViewModel = hiltViewModel(), areaName: String) {
+    fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityViewModel = hiltViewModel(), areaId: String) {
 
     val checkAreaState by viewModel.checkAreaFormTransaction.collectAsState(null)
     val saveAreaState by viewModel.saveFormSecurity.collectAsState(null)
     val eventAreaFormState by viewModel.eventAreaForm.collectAsState(null)
+
     val scope = rememberCoroutineScope()
 
     val openDialog = rememberSaveable {
@@ -121,6 +109,10 @@ fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityView
     }
 
     val countTryGetLocation = rememberSaveable { mutableIntStateOf(0) }
+
+    LaunchedEffect(key1 = Unit) {
+        viewModel.onEvent(AreaEvent.FindAreaById(areaId))
+    }
 
     when(eventAreaFormState) {
         UiAreaFormEvent.OutOfArea -> {
@@ -164,9 +156,9 @@ fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityView
                 )
             }
 
-
         }
         UiAreaFormEvent.TryGetLocation -> {
+
         }
         UiAreaFormEvent.LoadingGetLocation -> {
             LoadingDialog("Mencari lokasi saat ini")
@@ -193,10 +185,6 @@ fun AreaFormScreen(navController: NavController, viewModel: AreaListSecurityView
 
         }
         else -> {}
-    }
-
-    LaunchedEffect(key1 = Unit) {
-        viewModel.onEvent(AreaEvent.CheckArea(areaName = areaName))
     }
 
     when (checkAreaState) {
@@ -291,7 +279,6 @@ private fun AreaInput(navController: NavController, areaFormTransaction: Area, v
 
                     latitude.doubleValue = it.first
                     longitude.doubleValue = it.second
-
 
                     viewModel.sendAreaFormEvent(UiAreaFormEvent.SuccessGetLocation)
 
@@ -402,9 +389,7 @@ private fun AreaInput(navController: NavController, areaFormTransaction: Area, v
                 error = "Please Enter Valid Email"
             )
 
-            if (viewModel.requireTakepicture.value) {
-                BoxPhoto()
-            }
+            BoxPhoto()
 
             MyButton(modifier = Modifier.fillMaxWidth(),
                 enabled = true,
@@ -561,7 +546,10 @@ private fun BoxPhoto(viewModel: AreaListSecurityViewModel = hiltViewModel()) {
             Text(text = "Tap untuk mengambil foto")
         }
     }
-    Text(text = "*Sertakan photo area sekitar", color = Color.Red)
+
+    if (viewModel.requireTakepicture.value) {
+        Text(text = "*Sertakan photo area sekitar", color = Color.Red)
+    }
 
     if (viewModel.getListUri().isNotEmpty()) {
         viewModel.getListUri().forEach { uriCurrent ->
@@ -604,19 +592,6 @@ fun Context.createImageFile(): File {
     )
 
     return image
-}
-
-fun createMultipartBody(path : String, area: FormAreaBody) : MultipartBody {
-    val file = File(path)
-    return MultipartBody.Builder()
-        .setType(MultipartBody.FORM)
-        .addFormDataPart("userid", area.userid)
-        .addFormDataPart("area", area.area)
-        .addFormDataPart("latitude_actual", area.latitude_actual.toString())
-        .addFormDataPart("longitude_actual", area.longitude_actual.toString())
-        .addFormDataPart("keterangan", area.keterangan)
-        .addFormDataPart("image", file.name, file.asRequestBody())
-        .build()
 }
 
 fun createMultipartBodyMultiple(uris : List<Uri>, area: FormAreaBody) : MultipartBody {
